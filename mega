@@ -1,0 +1,340 @@
+// 4 Channel Transmitter
+
+#include <nRF24L01.h>
+#include <RF24.h>
+#include <LiquidCrystal_I2C.h>
+
+#include<Wire.h>
+
+RF24 radio(7, 8); // select CE,CSN pin 
+struct Signal {
+  byte rightTracks;
+  byte leftTracks;
+  byte turret;
+  byte elevation;
+  int LED_FRONT_ON;
+  int LED_FRONT_BLIK;
+  int LED_BACK_ON;
+  int LED_BACK_BLIK;
+  int RADAR_ON;
+  int RADAR_SLOW;
+  int SHOT;
+  };
+
+Signal data;
+const uint64_t pipeOut = 0xE9E8F0F0E1LL;   //IMPORTANT: The same as in the receiver 0xE9E8F0F0E1LL 
+void ResetData() {
+  data.rightTracks = 127; // Center 
+  data.leftTracks = 127; // Center 
+  data.turret = 127; // Center 
+  data.elevation = 127; // Center 
+  data.LED_FRONT_ON =0;
+  data.LED_FRONT_BLIK =0;
+  data.LED_BACK_ON =0;
+  data.LED_BACK_BLIK =0;
+  data.RADAR_ON =0;
+  data.RADAR_SLOW =0;
+  data.SHOT =0;
+ }
+
+LiquidCrystal_I2C lcd(0x27, 16, 4); // I2C address 0x27, 16 column and 2 rows
+
+///////////////////////////////////////////
+#define LED_LIGHTS_FRONT_ON_OUTPUT 49
+#define LED_LIGHTS_FRONT_BLIK_OUTPUT 48
+///////////////////////////////////////////
+#define LED_LIGHTS_BACK_BLIK_OUTPUT 47
+#define LED_LIGHTS_BACK_ON_OUTPUT 46
+///////////////////////////////////////////
+#define LED_LIGHTS_RADAR_SLOW_OUTPUT 45
+#define LED_LIGHTS_RADAR_ON_OUTPUT 44
+//////////////////////////////////////////
+#define LED_LIGHTS_SHOT_ON_OUTPUT 43
+
+
+
+#define LED_LIGHTS_FRONT_ON_INPUT A1
+#define LED_LIGHTS_FRONT_BLIK_INPUT A0
+////////////////////////////////////////
+#define LED_LIGHTS_BACK_ON_INPUT A3
+#define LED_LIGHTS_BACK_BLIK_INPUT A2
+////////////////////////////////////////
+#define RADAR_ON_INPUT A5
+#define RADAR_ON_SLOW_INPUT A4
+//////////////////////////////////////
+#define SHOT_ON_INPUT A6
+
+
+int LIGHTS_FRONT_ON = 0;
+int LIGHTS_FRONT_BLIK = 0;
+int LIGHTS_BACK_ON = 0;
+int LIGHTS_BACK_BLIK = 0;
+int RADAR_ON = 0;
+int RADAR_ON_SLOW = 0;
+int SHOT = 0;
+
+int LIGHTS_FRONT_ON_TEMP = 0;
+int LIGHTS_FRONT_BLIK_TEMP = 0;
+int LIGHTS_BACK_ON_TEMP = 0;
+int LIGHTS_BACK_BLIK_TEMP = 0;
+int RADAR_ON_TEMP = 0;
+int RADAR_ON_SLOW_TEMP = 0;
+int SHOT_TEMP = 0;
+
+byte LEFT_TRACK_TEMP = 0;
+byte RIGHT_TRACK_TEMP = 0;
+byte TURRET_TEMP = 0;
+byte ELEVATION_TEMP = 0;
+
+
+void setup() {
+
+  pinMode(LED_LIGHTS_FRONT_ON_OUTPUT, OUTPUT); 
+  pinMode(LED_LIGHTS_FRONT_BLIK_OUTPUT, OUTPUT); 
+  pinMode(LED_LIGHTS_BACK_ON_OUTPUT, OUTPUT); 
+  pinMode(LED_LIGHTS_BACK_BLIK_OUTPUT, OUTPUT); 
+  pinMode(LED_LIGHTS_RADAR_ON_OUTPUT, OUTPUT); 
+  pinMode(LED_LIGHTS_RADAR_SLOW_OUTPUT, OUTPUT); 
+  pinMode(LED_LIGHTS_SHOT_ON_OUTPUT, OUTPUT); 
+
+
+  //Start everything up
+  lcd.init(); // initialize the lcd
+  lcd.backlight();
+
+  pinMode(LED_LIGHTS_FRONT_BLIK_INPUT, INPUT_PULLUP);
+  pinMode(LED_LIGHTS_FRONT_ON_INPUT, INPUT_PULLUP);
+  pinMode(LED_LIGHTS_BACK_ON_INPUT, INPUT_PULLUP);
+  pinMode(LED_LIGHTS_BACK_BLIK_INPUT, INPUT_PULLUP);
+  pinMode(RADAR_ON_INPUT, INPUT_PULLUP);
+  pinMode(RADAR_ON_SLOW_INPUT, INPUT_PULLUP);
+  pinMode(SHOT_ON_INPUT, INPUT_PULLUP);
+  Serial.begin(9600);
+
+  radio.begin();
+  radio.openWritingPipe(pipeOut);
+  radio.stopListening(); //start the radio comunication for Transmitter 
+  ResetData();
+
+   lcd.setCursor(0, 0);         
+   lcd.print("FON="); 
+   lcd.setCursor(4, 0);         
+   lcd.print(0); 
+
+   lcd.setCursor(0, 1);         
+   lcd.print("FBL="); 
+   lcd.setCursor(4, 1);         
+   lcd.print(0); 
+   //////////////////////////////////////
+   lcd.setCursor(7, 0);         
+   lcd.print("BON="); 
+   lcd.setCursor(11, 0);         
+   lcd.print(0);
+
+   lcd.setCursor(7, 1);         
+   lcd.print("BBL=");
+   lcd.setCursor(11, 1);         
+   lcd.print(0);  
+   //////////////////////////////////////
+   lcd.setCursor(15, 0);         
+   lcd.print("RON="); 
+   lcd.setCursor(19, 0);         
+   lcd.print(0);  
+
+   lcd.setCursor(15, 1);         
+   lcd.print("RSL="); 
+   lcd.setCursor(19, 1);         
+   lcd.print(0);
+   //////////////////////////////////////
+   lcd.setCursor(15, 2); 
+   lcd.print("SHT="); 
+   lcd.setCursor(19, 2); 
+   lcd.print(0);
+   //////////////////////////////////////
+
+//////////////////////////////////////////
+   lcd.setCursor(0, 2);         
+   lcd.print("LT="); 
+   lcd.setCursor(3, 2);         
+   lcd.print(data.leftTracks); 
+
+   lcd.setCursor(0, 3);         
+   lcd.print("RT="); 
+   lcd.setCursor(3, 3);         
+   lcd.print(data.rightTracks); 
+
+//////////////////////////////////////////////
+   lcd.setCursor(7, 2);         
+   lcd.print("TUR="); 
+   lcd.setCursor(11, 2);         
+   lcd.print(data.turret); 
+
+   lcd.setCursor(7, 3);         
+   lcd.print("ELE="); 
+   lcd.setCursor(11, 3);         
+   lcd.print(data.elevation); 
+  
+}
+
+// Joystick center and its borders
+int mapJoystickValues(int val, int lower, int middle, int upper, bool reverse) {
+  val = constrain(val, lower, upper);
+  if ( val < middle )
+    val = map(val, lower, middle, 0, 128);
+  else
+    val = map(val, middle, upper, 128, 255);
+  return ( reverse ? 255 - val : val );
+  }
+
+
+
+
+void loop()
+{
+
+    data.LED_FRONT_ON = 0; 
+    if (analogRead(LED_LIGHTS_FRONT_ON_INPUT) < 50) {
+      data.LED_FRONT_ON = 1;
+      digitalWrite(LED_LIGHTS_FRONT_ON_OUTPUT, HIGH);
+    } else if (analogRead(LED_LIGHTS_FRONT_ON_INPUT) > 50) {
+      data.LED_FRONT_ON = 0;
+      digitalWrite(LED_LIGHTS_FRONT_ON_OUTPUT, LOW);
+    }
+
+    data.LED_FRONT_BLIK = 0; 
+    if (analogRead(LED_LIGHTS_FRONT_BLIK_INPUT) < 50) {
+      data.LED_FRONT_BLIK = 1;
+      digitalWrite(LED_LIGHTS_FRONT_BLIK_OUTPUT, HIGH);
+    } else if (analogRead(LED_LIGHTS_FRONT_BLIK_INPUT) > 50) {
+      data.LED_FRONT_BLIK = 0;
+      digitalWrite(LED_LIGHTS_FRONT_BLIK_OUTPUT, LOW);
+    }
+
+    ////////////////////////////////////////////////////////////
+
+    data.LED_BACK_ON = 0; 
+    if (analogRead(LED_LIGHTS_BACK_ON_INPUT) < 50) {
+      data.LED_BACK_ON = 1;
+      digitalWrite(LED_LIGHTS_BACK_ON_OUTPUT, HIGH);
+    } else if (analogRead(LED_LIGHTS_BACK_ON_INPUT) > 50) {
+      data.LED_BACK_ON = 0;
+      digitalWrite(LED_LIGHTS_BACK_ON_OUTPUT, LOW);
+    }
+
+    data.LED_BACK_BLIK = 0; 
+    if (analogRead(LED_LIGHTS_BACK_BLIK_INPUT) < 50) {
+      data.LED_BACK_BLIK = 1;
+      digitalWrite(LED_LIGHTS_BACK_BLIK_OUTPUT, HIGH);
+    } else if (analogRead(LED_LIGHTS_BACK_BLIK_INPUT) > 50) {
+      data.LED_BACK_BLIK = 0;
+      digitalWrite(LED_LIGHTS_BACK_BLIK_OUTPUT, LOW);
+    }
+
+    ////////////////////////////////////////////////////////
+
+    data.RADAR_ON = 0; 
+    if (analogRead(RADAR_ON_INPUT) < 50) {
+      data.RADAR_ON = 1;
+      digitalWrite(LED_LIGHTS_RADAR_ON_OUTPUT, HIGH);
+    } else if (analogRead(RADAR_ON_INPUT) > 50) {
+      data.RADAR_ON = 0;
+      digitalWrite(LED_LIGHTS_RADAR_ON_OUTPUT, LOW);
+    }
+
+    data.RADAR_SLOW = 0; 
+    if (analogRead(RADAR_ON_SLOW_INPUT) < 50) {
+      data.RADAR_SLOW = 1;
+      digitalWrite(LED_LIGHTS_RADAR_SLOW_OUTPUT, HIGH);
+    } else if (analogRead(RADAR_ON_SLOW_INPUT) > 50) {
+      data.RADAR_SLOW = 0;
+      digitalWrite(LED_LIGHTS_RADAR_SLOW_OUTPUT, LOW);
+    }
+
+    ////////////////////////////////////////////////////////
+     data.SHOT = 1; 
+    if (analogRead(SHOT_ON_INPUT) < 50) {
+      data.SHOT = 0;
+      digitalWrite(LED_LIGHTS_SHOT_ON_OUTPUT, LOW);
+    } else if (analogRead(SHOT_ON_INPUT) > 50) {
+      data.SHOT = 1;
+      digitalWrite(LED_LIGHTS_SHOT_ON_OUTPUT, HIGH);
+    }
+    ///////////////////////////////////////////////
+
+
+data.leftTracks = mapJoystickValues( analogRead(A8), 12, 524, 1020, true );  
+data.rightTracks = mapJoystickValues( analogRead(A9), 12, 524, 1020, true );     
+data.turret = mapJoystickValues( analogRead(A11), 12, 524, 1020, true );  
+data.elevation = mapJoystickValues( analogRead(A10), 12, 524, 1020, true );  
+radio.write(&data, sizeof(Signal));
+
+
+
+if (data.LED_FRONT_ON != LIGHTS_FRONT_ON_TEMP ) {
+   lcd.setCursor(4, 0);         
+   lcd.print(data.LED_FRONT_ON); 
+}
+
+if (data.LED_FRONT_BLIK != LIGHTS_FRONT_BLIK_TEMP ) {
+   lcd.setCursor(4, 1);         
+   lcd.print(data.LED_FRONT_BLIK); 
+}
+
+if (data.LED_BACK_ON != LIGHTS_BACK_ON_TEMP ) {
+   lcd.setCursor(11, 0);         
+   lcd.print(data.LED_BACK_ON); 
+}
+
+if (data.LED_BACK_BLIK != LIGHTS_BACK_BLIK_TEMP ) {
+   lcd.setCursor(11, 1);         
+   lcd.print(data.LED_BACK_BLIK); 
+}
+
+if (data.RADAR_ON != RADAR_ON_TEMP ) {
+   lcd.setCursor(19, 0);         
+   lcd.print(data.RADAR_ON);  
+}
+
+if (data.RADAR_SLOW != RADAR_ON_SLOW_TEMP ) {
+   lcd.setCursor(19, 1);         
+   lcd.print(data.RADAR_SLOW); 
+}
+
+if (data.SHOT != SHOT_TEMP ) {
+   lcd.setCursor(19, 2); 
+   lcd.print(data.SHOT);
+}
+
+if (data.leftTracks != LEFT_TRACK_TEMP ) {
+   lcd.setCursor(3, 2);         
+   lcd.print(data.leftTracks); 
+}
+
+if (data.rightTracks != RIGHT_TRACK_TEMP ) {
+   lcd.setCursor(3, 3);         
+   lcd.print(data.rightTracks); 
+}
+
+if (data.turret != TURRET_TEMP ) {
+   lcd.setCursor(11, 2);         
+   lcd.print(data.turret); 
+}
+if (data.elevation != ELEVATION_TEMP ) {
+   lcd.setCursor(11, 3);         
+   lcd.print(data.elevation); 
+}
+
+ LIGHTS_FRONT_ON_TEMP = data.LED_FRONT_ON;
+ LIGHTS_FRONT_BLIK_TEMP = data.LED_FRONT_BLIK;
+ LIGHTS_BACK_ON_TEMP = data.LED_BACK_ON;
+ LIGHTS_BACK_BLIK_TEMP = data.LED_BACK_BLIK;
+ RADAR_ON_TEMP = data.RADAR_ON;
+ RADAR_ON_SLOW_TEMP = data.RADAR_SLOW;
+ SHOT_TEMP = data.SHOT;
+
+ LEFT_TRACK_TEMP = data.leftTracks;
+ RIGHT_TRACK_TEMP = data.rightTracks;
+ TURRET_TEMP = data.turret;
+ ELEVATION_TEMP = data.elevation;
+
+}
